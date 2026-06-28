@@ -102,106 +102,24 @@ function startChallenge() {
     renderChallenge(challenge);
 }
 
-const TYPE_LABELS = {
-    logic:      '🧠 Logic',
-    typing:     '⌨️ Typing',
-    decision:   '💡 Decision',
-    estimation: '🎯 Estimation',
-    sequence:   '📋 Sequence'
-};
-
 function renderChallenge(c) {
-    document.getElementById('challenge-type-badge').textContent = TYPE_LABELS[c.type] || c.type;
     document.getElementById('challenge-question').textContent = c.question;
 
-    document.querySelectorAll('.input-area').forEach(el => el.classList.add('hidden'));
-
-    if (c.type === 'logic' || c.type === 'typing') {
-        const area = document.getElementById('input-text');
-        area.classList.remove('hidden');
-        const inp = document.getElementById('text-answer');
-        inp.value = '';
-        inp.placeholder = c.type === 'typing' ? 'Retype the sentence exactly...' : 'Type your answer...';
-        setTimeout(() => inp.focus(), 120);
-
-    } else if (c.type === 'decision') {
-        document.getElementById('input-options').classList.remove('hidden');
-        const box = document.getElementById('options-container');
-        box.innerHTML = '';
-        c.options.forEach(opt => {
-            const btn = document.createElement('button');
-            btn.className = 'option-btn';
-            btn.textContent = opt;
-            btn.onclick = () => {
-                document.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
-                btn.classList.add('selected');
-                state.selectedOption = opt;
-            };
-            box.appendChild(btn);
-        });
-
-    } else if (c.type === 'estimation') {
-        document.getElementById('input-estimation').classList.remove('hidden');
-        const inp = document.getElementById('number-answer');
-        inp.value = '';
-        setTimeout(() => inp.focus(), 120);
-
-    } else if (c.type === 'sequence') {
-        document.getElementById('input-sequence').classList.remove('hidden');
-        renderSequence(c.steps);
-    }
+    const box = document.getElementById('options-container');
+    box.innerHTML = '';
+    c.options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = 'option-btn';
+        btn.textContent = opt;
+        btn.onclick = () => {
+            document.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            state.selectedOption = opt;
+        };
+        box.appendChild(btn);
+    });
 
     startTimer(c.timeLimit);
-}
-
-// ===== SEQUENCE =====
-function renderSequence(steps) {
-    const shuffled = [...steps].sort(() => Math.random() - 0.5);
-    state.sequenceSelection = [];
-
-    const selectedEl = document.getElementById('sequence-selected');
-    const itemsEl = document.getElementById('sequence-items');
-    selectedEl.innerHTML = '<span class="seq-placeholder">Your order will appear here</span>';
-    itemsEl.innerHTML = '';
-
-    shuffled.forEach(step => {
-        const item = document.createElement('div');
-        item.className = 'seq-item';
-        item.dataset.value = step;
-        item.innerHTML = `<span class="seq-num">?</span><span>${step}</span>`;
-        item.onclick = () => addToSequence(item, step);
-        itemsEl.appendChild(item);
-    });
-}
-
-function addToSequence(item, value) {
-    if (item.classList.contains('used')) return;
-    item.classList.add('used');
-    state.sequenceSelection.push(value);
-
-    const selectedEl = document.getElementById('sequence-selected');
-    if (state.sequenceSelection.length === 1) selectedEl.innerHTML = '';
-
-    const selItem = document.createElement('div');
-    selItem.className = 'seq-selected-item';
-    selItem.dataset.value = value;
-    selItem.innerHTML = `<span class="seq-num">${state.sequenceSelection.length}</span><span>${value}</span>`;
-    selItem.onclick = () => removeFromSequence(selItem, item);
-    selectedEl.appendChild(selItem);
-}
-
-function removeFromSequence(selItem, origItem) {
-    selItem.remove();
-    origItem.classList.remove('used');
-
-    const selectedEl = document.getElementById('sequence-selected');
-    const remaining = selectedEl.querySelectorAll('.seq-selected-item');
-    state.sequenceSelection = Array.from(remaining).map(el => el.dataset.value);
-    remaining.forEach((el, i) => el.querySelector('.seq-num').textContent = i + 1);
-
-    if (remaining.length === 0) {
-        selectedEl.innerHTML = '<span class="seq-placeholder">Your order will appear here</span>';
-    }
 }
 
 // ===== TIMER =====
@@ -236,25 +154,7 @@ function resumeTimer() { startTimer(state.timeRemaining); }
 // ===== SUBMIT =====
 async function submitAnswer() {
     if (document.getElementById('btn-submit').disabled) return;
-    const c = state.currentChallenge;
-    let answer = '';
-
-    if (c.type === 'logic' || c.type === 'typing') {
-        answer = document.getElementById('text-answer').value.trim();
-        if (!answer) { shake('text-answer'); return; }
-
-    } else if (c.type === 'decision') {
-        if (!state.selectedOption) { shake('options-container'); return; }
-        answer = state.selectedOption;
-
-    } else if (c.type === 'estimation') {
-        answer = document.getElementById('number-answer').value.trim();
-        if (!answer) { shake('number-answer'); return; }
-
-    } else if (c.type === 'sequence') {
-        if (state.sequenceSelection.length < c.steps.length) { shake('input-sequence'); return; }
-        answer = state.sequenceSelection.join(',');
-    }
+    if (!state.selectedOption) { shake('options-container'); return; }
 
     pauseTimer();
     document.getElementById('btn-submit').disabled = true;
@@ -263,7 +163,7 @@ async function submitAnswer() {
         const res = await fetch('/api/answer', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ challengeId: String(c.id), answer })
+            body: JSON.stringify({ challengeId: String(state.currentChallenge.id), answer: state.selectedOption })
         });
         const data = await res.json();
         showResult(data.correct, false);

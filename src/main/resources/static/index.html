@@ -65,7 +65,7 @@
     <div class="challenge-container">
         <div class="challenge-header">
             <div class="round-badge" id="round-badge">Round 1</div>
-            <div class="type-badge" id="challenge-type-badge">Logic</div>
+            <div class="type-badge">🎌 Anime Trivia</div>
             <div class="player-score">
                 <span class="score-label">Score</span>
                 <span class="score-value" id="score-display">0</span>
@@ -78,25 +78,7 @@
         <div class="card challenge-card">
             <p class="challenge-question" id="challenge-question"></p>
 
-            <div id="input-text" class="input-area hidden">
-                <input type="text" id="text-answer" class="answer-input" placeholder="Type your answer..." autocomplete="off">
-            </div>
-
-            <div id="input-options" class="input-area hidden">
-                <div id="options-container"></div>
-            </div>
-
-            <div id="input-estimation" class="input-area hidden">
-                <input type="number" id="number-answer" class="answer-input number-input" placeholder="0">
-            </div>
-
-            <div id="input-sequence" class="input-area hidden">
-                <p class="sequence-hint">Click the steps in the correct order:</p>
-                <div id="sequence-selected" class="sequence-selected">
-                    <span class="seq-placeholder">Your order will appear here</span>
-                </div>
-                <div id="sequence-items"></div>
-            </div>
+            <div id="options-container" class="options-container"></div>
 
             <button class="btn-primary" id="btn-submit" onclick="submitAnswer()">Submit Answer</button>
         </div>
