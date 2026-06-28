@@ -1,0 +1,124 @@
+{
+  "challenges": [
+    {
+      "id": 1,
+      "type": "logic",
+      "difficulty": 1,
+      "question": "What comes next in the sequence? 2, 4, 8, 16, __",
+      "answer": "32",
+      "timeLimit": 30
+    },
+    {
+      "id": 2,
+      "type": "logic",
+      "difficulty": 2,
+      "question": "What comes next in the sequence? 1, 1, 2, 3, 5, 8, __",
+      "answer": "13",
+      "timeLimit": 30
+    },
+    {
+      "id": 3,
+      "type": "typing",
+      "difficulty": 1,
+      "question": "Retype this exactly: The quick brown fox jumps over the lazy dog",
+      "answer": "The quick brown fox jumps over the lazy dog",
+      "timeLimit": 20
+    },
+    {
+      "id": 4,
+      "type": "typing",
+      "difficulty": 2,
+      "question": "Retype this exactly: Agile teams deliver value through collaboration and iteration",
+      "answer": "Agile teams deliver value through collaboration and iteration",
+      "timeLimit": 20
+    },
+    {
+      "id": 5,
+      "type": "decision",
+      "difficulty": 1,
+      "question": "Your team missed a sprint goal. What is the best first action?",
+      "options": [
+        "Blame the team members who underperformed",
+        "Hold a retrospective to identify the root cause",
+        "Skip the next sprint planning to catch up",
+        "Increase working hours immediately"
+      ],
+      "answer": "Hold a retrospective to identify the root cause",
+      "timeLimit": 25
+    },
+    {
+      "id": 6,
+      "type": "decision",
+      "difficulty": 2,
+      "question": "A stakeholder requests a major new feature mid-sprint. What do you do?",
+      "options": [
+        "Add it to the current sprint immediately",
+        "Ignore the request until next quarter",
+        "Log it in the backlog and discuss priority in the next sprint planning",
+        "Cancel the current sprint"
+      ],
+      "answer": "Log it in the backlog and discuss priority in the next sprint planning",
+      "timeLimit": 25
+    },
+    {
+      "id": 7,
+      "type": "estimation",
+      "difficulty": 1,
+      "question": "How many working days are in a typical 2-week sprint?",
+      "answer": 10,
+      "tolerance": 0,
+      "timeLimit": 15
+    },
+    {
+      "id": 8,
+      "type": "estimation",
+      "difficulty": 2,
+      "question": "Approximately how many story points does an average team complete per sprint?",
+      "answer": 40,
+      "tolerance": 15,
+      "timeLimit": 15
+    },
+    {
+      "id": 9,
+      "type": "sequence",
+      "difficulty": 1,
+      "question": "Put these Scrum events in the correct order:",
+      "steps": [
+        "Sprint Planning",
+        "Daily Scrum",
+        "Sprint Review",
+        "Sprint Retrospective"
+      ],
+      "answer": ["Sprint Planning", "Daily Scrum", "Sprint Review", "Sprint Retrospective"],
+      "timeLimit": 30
+    },
+    {
+      "id": 10,
+      "type": "sequence",
+      "difficulty": 2,
+      "question": "Put these software delivery steps in the correct order:",
+      "steps": [
+        "Deploy to production",
+        "Write code",
+        "Run tests",
+        "Merge pull request"
+      ],
+      "answer": ["Write code", "Run tests", "Merge pull request", "Deploy to production"],
+      "timeLimit": 30
+    },
+    {
+      "id": 11,
+      "type": "creative",
+      "difficulty": 1,
+      "question": "In one sentence, what is the best way to handle a conflict between two team members?",
+      "timeLimit": 45
+    },
+    {
+      "id": 12,
+      "type": "creative",
+      "difficulty": 2,
+      "question": "In one sentence, how would you explain technical debt to a non-technical manager?",
+      "timeLimit": 45
+    }
+  ]
+}
