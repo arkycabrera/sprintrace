@@ -40,13 +40,6 @@ document.getElementById('player-name').addEventListener('keypress', e => {
     if (e.key === 'Enter') joinGame();
 });
 
-document.getElementById('text-answer').addEventListener('keypress', e => {
-    if (e.key === 'Enter') submitAnswer();
-});
-
-document.getElementById('number-answer').addEventListener('keypress', e => {
-    if (e.key === 'Enter') submitAnswer();
-});
 
 // ===== LOBBY =====
 function showLobby() {
