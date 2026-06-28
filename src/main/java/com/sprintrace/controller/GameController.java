@@ -3,6 +3,7 @@ package com.sprintrace.controller;
 import com.sprintrace.model.Challenge;
 import com.sprintrace.service.ChallengeService;
 import org.springframework.web.bind.annotation.*;
+import java.util.List;
 
 import java.util.Map;
 
@@ -15,6 +16,11 @@ public class GameController {
 
     public GameController(ChallengeService challengeService) {
         this.challengeService = challengeService;
+    }
+
+    @GetMapping("/challenges")
+    public List<Challenge> getAllChallenges() {
+        return challengeService.getAllChallenges();
     }
 
     @GetMapping("/challenge")

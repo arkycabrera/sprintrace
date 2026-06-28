@@ -5,7 +5,9 @@ const state = {
     round: 1,
     score: 0,
     currentChallenge: null,
+    challengeQueue: [],
     timer: null,
+    lobbyTimer: null,
     timeRemaining: 0,
     timerTotal: 0,
     selectedOption: null,
@@ -57,6 +59,8 @@ function showLobby() {
     const el = document.getElementById('lobby-countdown');
     el.textContent = count;
 
+    loadChallenges();
+
     state.lobbyTimer = setInterval(() => {
         count--;
         if (count <= 0) {
@@ -68,28 +72,41 @@ function showLobby() {
     }, 1000);
 }
 
-function letsGo() {
+async function letsGo() {
     clearInterval(state.lobbyTimer);
+    await loadChallenges();
     startChallenge();
 }
 
+async function loadChallenges() {
+    try {
+        const res = await fetch('/api/challenges');
+        const all = await res.json();
+        // Separate by difficulty, shuffle each group, interleave: 3 easy then 2 hard
+        const easy = all.filter(c => c.difficulty === 1).sort(() => Math.random() - 0.5);
+        const hard = all.filter(c => c.difficulty === 2).sort(() => Math.random() - 0.5);
+        state.challengeQueue = [...easy.slice(0, 3), ...hard.slice(0, 2)];
+    } catch (err) {
+        console.error('Failed to load challenges', err);
+    }
+}
+
 // ===== CHALLENGE =====
-async function startChallenge() {
+function startChallenge() {
     showScreen('challenge');
     document.getElementById('round-badge').textContent = `Round ${state.round}`;
     document.getElementById('score-display').textContent = state.score;
     state.selectedOption = null;
     state.sequenceSelection = [];
 
-    try {
-        const res = await fetch(`/api/challenge?round=${state.round}`);
-        const challenge = await res.json();
-        state.currentChallenge = challenge;
-        renderChallenge(challenge);
-    } catch (err) {
+    const challenge = state.challengeQueue[state.round - 1];
+    if (!challenge) {
         document.getElementById('challenge-question').textContent =
             'Could not load challenge. Make sure the server is running on port 8080.';
+        return;
     }
+    state.currentChallenge = challenge;
+    renderChallenge(challenge);
 }
 
 const TYPE_LABELS = {
