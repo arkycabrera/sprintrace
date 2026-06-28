@@ -242,6 +242,7 @@ function resumeTimer() { startTimer(state.timeRemaining); }
 
 // ===== SUBMIT =====
 async function submitAnswer() {
+    if (document.getElementById('btn-submit').disabled) return;
     const c = state.currentChallenge;
     let answer = '';
 
