@@ -107,18 +107,21 @@
       "timeLimit": 30
     },
     {
+      "_note": "Creative peer-voted challenges removed for v1. Add back in Sprint 2 with voting flow.",
       "id": 11,
       "type": "creative",
       "difficulty": 1,
       "question": "In one sentence, what is the best way to handle a conflict between two team members?",
-      "timeLimit": 45
+      "timeLimit": 45,
+      "enabled": false
     },
     {
       "id": 12,
       "type": "creative",
       "difficulty": 2,
       "question": "In one sentence, how would you explain technical debt to a non-technical manager?",
-      "timeLimit": 45
+      "timeLimit": 45,
+      "enabled": false
     }
   ]
 }
