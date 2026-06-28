@@ -38,6 +38,14 @@ document.getElementById('player-name').addEventListener('keypress', e => {
     if (e.key === 'Enter') joinGame();
 });
 
+document.getElementById('text-answer').addEventListener('keypress', e => {
+    if (e.key === 'Enter') submitAnswer();
+});
+
+document.getElementById('number-answer').addEventListener('keypress', e => {
+    if (e.key === 'Enter') submitAnswer();
+});
+
 // ===== LOBBY =====
 function showLobby() {
     showScreen('lobby');
@@ -45,19 +53,24 @@ function showLobby() {
     document.getElementById('lobby-avatar').textContent = initial;
     document.getElementById('lobby-welcome').textContent = `Welcome, ${state.playerName}!`;
 
-    let count = 3;
+    let count = 30;
     const el = document.getElementById('lobby-countdown');
     el.textContent = count;
 
-    const tick = setInterval(() => {
+    state.lobbyTimer = setInterval(() => {
         count--;
         if (count <= 0) {
-            clearInterval(tick);
+            clearInterval(state.lobbyTimer);
             startChallenge();
         } else {
             el.textContent = count;
         }
     }, 1000);
+}
+
+function letsGo() {
+    clearInterval(state.lobbyTimer);
+    startChallenge();
 }
 
 // ===== CHALLENGE =====
@@ -317,6 +330,8 @@ function showGameOver() {
 }
 
 function restartGame() {
+    clearInterval(state.lobbyTimer);
+    clearInterval(state.timer);
     state.round = 1;
     state.score = 0;
     state.currentChallenge = null;
