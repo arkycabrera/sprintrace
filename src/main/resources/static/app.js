@@ -4,6 +4,7 @@ const LEADERBOARD_AT = [5, 10, 15];
 
 const state = {
     playerName: '',
+    mode: 'solo',       // 'solo' or 'player'
     round: 1,
     score: 0,
     challengeQueue: [],
@@ -11,6 +12,7 @@ const state = {
     selectedOption: null,
     timer: null,
     lobbyTimer: null,
+    pollInterval: null,
     timeRemaining: 0,
     timerTotal: 0,
     leaderboardIsFinal: false
@@ -22,8 +24,13 @@ function showScreen(id) {
     document.getElementById('screen-' + id).classList.add('active');
 }
 
+function getCurrentScreen() {
+    const el = document.querySelector('.screen.active');
+    return el ? el.id.replace('screen-', '') : null;
+}
+
 // ===== JOIN =====
-function joinGame() {
+function joinGame(mode) {
     const input = document.getElementById('player-name');
     const name = input.value.trim();
     if (!name) {
@@ -33,13 +40,15 @@ function joinGame() {
         return;
     }
     state.playerName = name;
+    state.mode = mode;
     state.round = 1;
     state.score = 0;
+    state.challengeQueue = [];
     showLobby();
 }
 
 document.getElementById('player-name').addEventListener('keypress', e => {
-    if (e.key === 'Enter') joinGame();
+    if (e.key === 'Enter') joinGame('solo');
 });
 
 // ===== LOBBY =====
@@ -48,32 +57,103 @@ function showLobby() {
     document.getElementById('lobby-avatar').textContent = state.playerName.charAt(0).toUpperCase();
     document.getElementById('lobby-welcome').textContent = `Welcome, ${state.playerName}!`;
 
-    let count = 30;
-    const el = document.getElementById('lobby-countdown');
-    el.textContent = count;
+    if (state.mode === 'solo') {
+        document.getElementById('lobby-solo-content').classList.remove('hidden');
+        document.getElementById('lobby-player-content').classList.add('hidden');
+        document.getElementById('btn-letsgo').classList.remove('hidden');
 
-    loadChallenges();
+        loadChallengesSolo();
 
-    state.lobbyTimer = setInterval(() => {
-        count--;
-        if (count <= 0) { clearInterval(state.lobbyTimer); startChallenge(); }
-        else el.textContent = count;
-    }, 1000);
+        let count = 30;
+        const el = document.getElementById('lobby-countdown');
+        el.textContent = count;
+        state.lobbyTimer = setInterval(() => {
+            count--;
+            if (count <= 0) { clearInterval(state.lobbyTimer); startChallenge(); }
+            else el.textContent = count;
+        }, 1000);
+    } else {
+        document.getElementById('lobby-solo-content').classList.add('hidden');
+        document.getElementById('lobby-player-content').classList.remove('hidden');
+        document.getElementById('btn-letsgo').classList.add('hidden');
+        startStatePoll();
+    }
 }
 
 async function letsGo() {
+    if (state.mode !== 'solo') return;
     clearInterval(state.lobbyTimer);
-    if (state.challengeQueue.length === 0) await loadChallenges();
+    if (state.challengeQueue.length === 0) await loadChallengesSolo();
     startChallenge();
 }
 
-async function loadChallenges() {
+async function loadChallengesSolo() {
     try {
         const res = await fetch('/api/challenges');
         const all = await res.json();
         state.challengeQueue = all.sort(() => Math.random() - 0.5).slice(0, MAX_ROUNDS);
     } catch (err) {
         console.error('Failed to load challenges', err);
+    }
+}
+
+async function loadServerChallenges() {
+    try {
+        const res = await fetch('/api/game/challenges');
+        const all = await res.json();
+        state.challengeQueue = all;
+    } catch (err) {
+        console.error('Failed to load server challenges', err);
+    }
+}
+
+// ===== POLLING (Player mode) =====
+function startStatePoll() {
+    stopStatePoll();
+    state.pollInterval = setInterval(pollServerState, 2000);
+}
+
+function stopStatePoll() {
+    clearInterval(state.pollInterval);
+    state.pollInterval = null;
+}
+
+async function pollServerState() {
+    try {
+        const res = await fetch('/api/game/state');
+        const data = await res.json();
+        handleServerState(data);
+    } catch (e) { /* ignore */ }
+}
+
+async function handleServerState(data) {
+    const { round, phase } = data;
+    const screen = getCurrentScreen();
+
+    if (phase === 'FINISHED') {
+        stopStatePoll();
+        showGameOver();
+        return;
+    }
+
+    if (phase === 'QUESTION' && round > state.round) {
+        if (state.challengeQueue.length === 0) {
+            await loadServerChallenges();
+        }
+        state.round = round;
+        stopStatePoll();
+        startChallenge();
+        return;
+    }
+
+    // First game start: player is in lobby waiting
+    if (screen === 'lobby' && phase === 'QUESTION' && round >= 1) {
+        if (state.challengeQueue.length === 0) {
+            await loadServerChallenges();
+        }
+        state.round = round;
+        stopStatePoll();
+        startChallenge();
     }
 }
 
@@ -91,7 +171,6 @@ function startChallenge() {
         return;
     }
     state.currentChallenge = challenge;
-
     document.getElementById('challenge-question').textContent = challenge.question;
 
     const box = document.getElementById('options-container');
@@ -177,7 +256,7 @@ async function handleTimeout() {
             const data = await res.json();
             showResult(data, false);
             return;
-        } catch (err) { /* fall through to timeout screen */ }
+        } catch (err) { /* fall through */ }
     }
     showResult(null, true);
 }
@@ -221,18 +300,34 @@ function showResult(data, timedOut) {
     document.getElementById('stat-round').textContent = state.round;
     document.getElementById('stat-score').textContent = state.score;
 
-    const isLastRound = state.round >= MAX_ROUNDS;
-    const isLeaderboardRound = LEADERBOARD_AT.includes(state.round);
-    document.getElementById('next-btn-text').textContent =
-        isLastRound ? 'See Final Score' :
-        isLeaderboardRound ? 'See Leaderboard' :
-        `Round ${state.round + 1} →`;
+    const container = document.getElementById('next-round-container');
+
+    if (state.mode === 'player') {
+        // GM controls advancement — show waiting indicator
+        container.innerHTML = `
+            <div class="waiting-gm-result">
+                <div class="pulse-dot"></div>
+                <span>Waiting for Game Master to continue...</span>
+            </div>`;
+        startStatePoll();
+    } else {
+        // Solo mode — show Next button
+        const isLastRound = state.round >= MAX_ROUNDS;
+        const isLeaderboardRound = LEADERBOARD_AT.includes(state.round);
+        const nextLabel = isLastRound ? 'See Final Score' :
+                          isLeaderboardRound ? 'See Leaderboard' :
+                          `Round ${state.round + 1} →`;
+        container.innerHTML = `
+            <button class="btn-primary" onclick="nextRound()">
+                <span>${nextLabel}</span>
+                <span class="btn-arrow">→</span>
+            </button>`;
+    }
 }
 
 function renderVoteBars(votes, total, playerChoice, majority, isTie) {
     const container = document.getElementById('vote-bars');
     container.innerHTML = '';
-
     if (!votes || total === 0) return;
 
     Object.entries(votes)
@@ -263,7 +358,7 @@ function renderVoteBars(votes, total, playerChoice, majority, isTie) {
     });
 }
 
-// ===== NEXT ROUND =====
+// ===== NEXT ROUND (solo) =====
 function nextRound() {
     const completed = state.round;
     if (LEADERBOARD_AT.includes(completed)) {
@@ -280,7 +375,6 @@ function nextRound() {
 // ===== LEADERBOARD =====
 function showLeaderboard(completedRound, isFinal) {
     showScreen('leaderboard');
-
     document.getElementById('leaderboard-title').textContent = isFinal ? 'Final Results' : 'Leaderboard';
     document.getElementById('leaderboard-subtitle').textContent = `After Round ${completedRound}`;
 
@@ -294,16 +388,13 @@ function showLeaderboard(completedRound, isFinal) {
         </div>
         <p class="lb-solo-note">Multiplayer coming soon — invite friends to compete!</p>`;
 
-    const btnText = isFinal ? 'See Final Score' : `Continue to Round ${state.round}`;
-    document.getElementById('leaderboard-btn-text').textContent = btnText;
+    document.getElementById('leaderboard-btn-text').textContent =
+        isFinal ? 'See Final Score' : `Continue to Round ${state.round}`;
 }
 
 function continueAfterLeaderboard() {
-    if (state.leaderboardIsFinal) {
-        showGameOver();
-    } else {
-        startChallenge();
-    }
+    if (state.leaderboardIsFinal) showGameOver();
+    else startChallenge();
 }
 
 // ===== GAME OVER =====
@@ -322,7 +413,7 @@ const MESSAGES = [
     "Extraordinary! Near-perfect crowd alignment.",
     "Incredible run. You're a natural!",
     "Almost perfect. The crowd loves you.",
-    "Perfect score! You are the SprintRace champion! 🎉"
+    "Perfect score! You are the Majority Wins champion! 🎉"
 ];
 
 function showGameOver() {
@@ -337,18 +428,152 @@ function showGameOver() {
 function restartGame() {
     clearInterval(state.lobbyTimer);
     clearInterval(state.timer);
+    stopStatePoll();
     state.round = 1;
     state.score = 0;
     state.currentChallenge = null;
     state.challengeQueue = [];
+    state.mode = 'solo';
     document.getElementById('player-name').value = '';
     document.getElementById('btn-submit').disabled = false;
     showScreen('join');
 }
 
-// ===== SHAKE =====
-function shake(id) {
-    const el = document.getElementById(id);
-    el.classList.add('shake');
-    setTimeout(() => el.classList.remove('shake'), 400);
+// ===== GAME MASTER =====
+const gm = {
+    challenges: [],
+    pollInterval: null
+};
+
+function openGM() {
+    showScreen('gm');
+    gmRefresh();
+    gm.pollInterval = setInterval(gmRefresh, 3000);
+}
+
+function closeGM() {
+    clearInterval(gm.pollInterval);
+    gm.pollInterval = null;
+    showScreen('join');
+}
+
+async function gmRefresh() {
+    try {
+        const [stateRes, votesRes] = await Promise.all([
+            fetch('/api/game/state'),
+            fetch('/api/game/current-votes')
+        ]);
+        const serverState = await stateRes.json();
+        const votes = await votesRes.json();
+
+        const { round, phase } = serverState;
+
+        document.getElementById('gm-round').textContent = round > 0 ? `${round} / 15` : '—';
+        document.getElementById('gm-phase').textContent =
+            phase === 'LOBBY' ? 'Waiting' :
+            phase === 'QUESTION' ? `Round ${round}` :
+            'Finished';
+        document.getElementById('gm-votes').textContent = votes.totalVotes || 0;
+
+        // Load challenge list if not loaded yet
+        if (gm.challenges.length === 0 && phase !== 'LOBBY') {
+            const res = await fetch('/api/game/challenges');
+            gm.challenges = await res.json();
+        }
+
+        // Show current question
+        if (round > 0 && gm.challenges.length >= round) {
+            const challenge = gm.challenges[round - 1];
+            document.getElementById('gm-question-label').textContent = `Question ${round} of 15`;
+            document.getElementById('gm-question').textContent = challenge.question;
+        } else if (phase === 'LOBBY') {
+            document.getElementById('gm-question-label').textContent = 'No game in progress';
+            document.getElementById('gm-question').textContent = 'Start the game to see questions here.';
+        } else if (phase === 'FINISHED') {
+            document.getElementById('gm-question-label').textContent = 'Game over';
+            document.getElementById('gm-question').textContent = 'All 15 rounds completed.';
+        }
+
+        // Live vote bars
+        renderGMVoteBars(votes);
+
+        // Control buttons
+        renderGMControls(phase, round);
+
+    } catch (e) {
+        console.error('GM refresh failed', e);
+    }
+}
+
+function renderGMVoteBars(votes) {
+    const container = document.getElementById('gm-vote-bars');
+    container.innerHTML = '';
+    const { votes: voteMap, totalVotes, majority, isTie } = votes;
+    if (!voteMap || totalVotes === 0) return;
+
+    Object.entries(voteMap)
+        .sort((a, b) => b[1] - a[1])
+        .forEach(([option, count]) => {
+            const pct = Math.round((count / totalVotes) * 100);
+            const isMajority = !isTie && option === majority;
+            const item = document.createElement('div');
+            item.className = 'vote-bar-item';
+            item.innerHTML = `
+                <div class="vote-bar-label">
+                    <span>${option}</span>
+                    <span class="vote-pct">${count} vote${count !== 1 ? 's' : ''} (${pct}%)</span>
+                </div>
+                <div class="vote-bar-track">
+                    <div class="vote-bar-fill ${isMajority ? 'majority' : 'other'}"
+                         style="width: 0%" data-width="${pct}%"></div>
+                </div>`;
+            container.appendChild(item);
+        });
+
+    requestAnimationFrame(() => {
+        container.querySelectorAll('.vote-bar-fill').forEach(bar => {
+            bar.style.width = bar.dataset.width;
+        });
+    });
+}
+
+function renderGMControls(phase, round) {
+    const el = document.getElementById('gm-controls');
+    if (phase === 'LOBBY') {
+        el.innerHTML = `
+            <button class="btn-gm-action" onclick="gmStart()">
+                <span>▶ Start Game</span>
+            </button>`;
+    } else if (phase === 'QUESTION') {
+        const isLast = round >= 15;
+        el.innerHTML = `
+            <button class="btn-gm-action" onclick="gmNext()">
+                <span>${isLast ? '🏁 End Game' : `Next Question → (Round ${round + 1})`}</span>
+            </button>`;
+    } else {
+        el.innerHTML = `<p class="gm-finished-msg">Game finished! Reset to start a new game.</p>`;
+    }
+}
+
+async function gmStart() {
+    try {
+        gm.challenges = [];
+        await fetch('/api/game/start', { method: 'POST' });
+        gmRefresh();
+    } catch (e) { console.error('GM start failed', e); }
+}
+
+async function gmNext() {
+    try {
+        await fetch('/api/game/advance', { method: 'POST' });
+        gmRefresh();
+    } catch (e) { console.error('GM advance failed', e); }
+}
+
+async function gmReset() {
+    try {
+        gm.challenges = [];
+        await fetch('/api/game/reset', { method: 'POST' });
+        gmRefresh();
+    } catch (e) { console.error('GM reset failed', e); }
 }

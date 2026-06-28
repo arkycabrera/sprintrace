@@ -39,4 +39,8 @@ public class VoteService {
         int max = Collections.max(v.values());
         return v.values().stream().filter(val -> val == max).count() > 1;
     }
+
+    public void reset() {
+        votes.clear();
+    }
 }

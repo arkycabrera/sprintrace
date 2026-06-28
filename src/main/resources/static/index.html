@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SprintRace</title>
+    <title>Majority Wins</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
@@ -15,7 +15,7 @@
     <div class="join-container">
         <div class="logo-area">
             <span class="logo-icon">💭</span>
-            <h1 class="logo-text">SprintRace</h1>
+            <h1 class="logo-text">Majority Wins</h1>
             <p class="logo-tagline">15 questions. No right answers. Only the majority wins.</p>
         </div>
         <div class="card join-card">
@@ -25,11 +25,17 @@
                 <label for="player-name">Your Name</label>
                 <input type="text" id="player-name" placeholder="Enter your name" maxlength="20" autocomplete="off">
             </div>
-            <button class="btn-primary" onclick="joinGame()">
-                <span>Join Game</span>
+            <button class="btn-primary" onclick="joinGame('solo')">
+                <span>Play Solo</span>
                 <span class="btn-arrow">→</span>
             </button>
+            <div class="join-or">or</div>
+            <button class="btn-secondary" onclick="joinGame('player')">
+                <span>Join Multiplayer</span>
+                <span class="btn-arrow-sm">→</span>
+            </button>
         </div>
+        <button class="btn-gm-link" onclick="openGM()">🎮 Game Master</button>
         <p class="creator-credit">Created by Arky Cabrera</p>
     </div>
 </div>
@@ -39,20 +45,35 @@
     <div class="lobby-container">
         <div class="lobby-header">
             <span class="logo-icon small">💭</span>
-            <h1 class="logo-text-sm">SprintRace</h1>
+            <h1 class="logo-text-sm">Majority Wins</h1>
         </div>
         <div class="card lobby-card">
             <div class="player-avatar" id="lobby-avatar"></div>
             <h2 id="lobby-welcome">Welcome!</h2>
-            <p class="card-subtitle">Get ready. The game starts in...</p>
-            <div class="countdown" id="lobby-countdown">30</div>
+
+            <!-- Solo mode content -->
+            <div id="lobby-solo-content">
+                <p class="card-subtitle">Get ready. The game starts in...</p>
+                <div class="countdown" id="lobby-countdown">30</div>
+            </div>
+
+            <!-- Multiplayer mode content -->
+            <div id="lobby-player-content" class="hidden">
+                <p class="card-subtitle">You're in! Waiting for the Game Master to start...</p>
+                <div class="waiting-gm-lobby">
+                    <div class="pulse-ring"></div>
+                    <span>Standing by...</span>
+                </div>
+            </div>
+
             <div class="rules-grid">
                 <div class="rule-item"><span class="rule-icon">💭</span><span>Answer thought-provoking questions</span></div>
                 <div class="rule-item"><span class="rule-icon">🗳️</span><span>The majority answer wins each round</span></div>
                 <div class="rule-item"><span class="rule-icon">🤝</span><span>Match the majority to earn a point</span></div>
                 <div class="rule-item"><span class="rule-icon">🏆</span><span>Most points after 15 rounds wins</span></div>
             </div>
-            <button class="btn-primary btn-letsgo" onclick="letsGo()">
+
+            <button class="btn-primary btn-letsgo" id="btn-letsgo" onclick="letsGo()">
                 <span>Let's Go!</span>
                 <span class="btn-arrow">→</span>
             </button>
@@ -106,10 +127,14 @@
                 <span class="stat-label">Total Votes</span>
             </div>
         </div>
-        <button class="btn-primary" onclick="nextRound()">
-            <span id="next-btn-text">Next Round</span>
-            <span class="btn-arrow">→</span>
-        </button>
+
+        <!-- Solo: Next button. Player mode: waiting indicator -->
+        <div id="next-round-container">
+            <button class="btn-primary" id="next-round-btn" onclick="nextRound()">
+                <span id="next-btn-text">Next Round</span>
+                <span class="btn-arrow">→</span>
+            </button>
+        </div>
     </div>
 </div>
 
@@ -144,6 +169,44 @@
         <p class="gameover-message" id="gameover-message"></p>
         <button class="btn-primary" onclick="restartGame()">Play Again</button>
         <p class="creator-credit">Created by Arky Cabrera</p>
+    </div>
+</div>
+
+<!-- GAME MASTER SCREEN -->
+<div id="screen-gm" class="screen">
+    <div class="gm-container">
+        <div class="gm-header">
+            <div class="gm-title-row">
+                <h1 class="logo-text-sm">Majority Wins</h1>
+                <span class="gm-badge">🎮 Game Master</span>
+            </div>
+        </div>
+
+        <div class="gm-status-bar">
+            <div class="gm-stat-box">
+                <span class="gm-stat-label">Round</span>
+                <span class="gm-stat-value" id="gm-round">—</span>
+            </div>
+            <div class="gm-stat-box">
+                <span class="gm-stat-label">Status</span>
+                <span class="gm-stat-value" id="gm-phase">Lobby</span>
+            </div>
+            <div class="gm-stat-box">
+                <span class="gm-stat-label">Votes In</span>
+                <span class="gm-stat-value" id="gm-votes">0</span>
+            </div>
+        </div>
+
+        <div class="card gm-card">
+            <p class="gm-question-label" id="gm-question-label">No game in progress</p>
+            <p class="gm-question" id="gm-question"></p>
+            <div id="gm-vote-bars" class="vote-bars"></div>
+        </div>
+
+        <div id="gm-controls" class="gm-controls"></div>
+
+        <button class="btn-gm-reset" onclick="gmReset()">↺ Reset Game</button>
+        <button class="btn-gm-link" onclick="closeGM()">← Back to Join</button>
     </div>
 </div>
 
