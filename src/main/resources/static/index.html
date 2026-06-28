@@ -14,13 +14,13 @@
 <div id="screen-join" class="screen active">
     <div class="join-container">
         <div class="logo-area">
-            <span class="logo-icon">⚡</span>
+            <span class="logo-icon">💭</span>
             <h1 class="logo-text">SprintRace</h1>
-            <p class="logo-tagline">The ultimate workplace challenge game</p>
+            <p class="logo-tagline">15 questions. No right answers. Only the majority wins.</p>
         </div>
         <div class="card join-card">
             <h2>Enter the Arena</h2>
-            <p class="card-subtitle">Answer fast. Outlast everyone. Last one standing wins.</p>
+            <p class="card-subtitle">Answer philosophical questions. Match the majority. Top score after 15 rounds wins.</p>
             <div class="input-group">
                 <label for="player-name">Your Name</label>
                 <input type="text" id="player-name" placeholder="Enter your name" maxlength="20" autocomplete="off">
@@ -38,19 +38,19 @@
 <div id="screen-lobby" class="screen">
     <div class="lobby-container">
         <div class="lobby-header">
-            <span class="logo-icon small">⚡</span>
+            <span class="logo-icon small">💭</span>
             <h1 class="logo-text-sm">SprintRace</h1>
         </div>
         <div class="card lobby-card">
             <div class="player-avatar" id="lobby-avatar"></div>
             <h2 id="lobby-welcome">Welcome!</h2>
-            <p class="card-subtitle">Get ready. The challenge starts in...</p>
+            <p class="card-subtitle">Get ready. The game starts in...</p>
             <div class="countdown" id="lobby-countdown">30</div>
             <div class="rules-grid">
-                <div class="rule-item"><span class="rule-icon">🎯</span><span>Answer fast and correctly</span></div>
-                <div class="rule-item"><span class="rule-icon">⏱️</span><span>Each round has a time limit</span></div>
-                <div class="rule-item"><span class="rule-icon">📈</span><span>Rounds get harder each time</span></div>
-                <div class="rule-item"><span class="rule-icon">🏆</span><span>5 rounds, best score wins</span></div>
+                <div class="rule-item"><span class="rule-icon">💭</span><span>Answer thought-provoking questions</span></div>
+                <div class="rule-item"><span class="rule-icon">🗳️</span><span>The majority answer wins each round</span></div>
+                <div class="rule-item"><span class="rule-icon">🤝</span><span>Match the majority to earn a point</span></div>
+                <div class="rule-item"><span class="rule-icon">🏆</span><span>Most points after 15 rounds wins</span></div>
             </div>
             <button class="btn-primary btn-letsgo" onclick="letsGo()">
                 <span>Let's Go!</span>
@@ -65,7 +65,7 @@
     <div class="challenge-container">
         <div class="challenge-header">
             <div class="round-badge" id="round-badge">Round 1</div>
-            <div class="type-badge">🎌 Anime Trivia</div>
+            <div class="type-badge">💭 Opinion</div>
             <div class="player-score">
                 <span class="score-label">Score</span>
                 <span class="score-value" id="score-display">0</span>
@@ -74,12 +74,10 @@
         <div class="timer-bar-wrap">
             <div class="timer-bar" id="timer-bar"></div>
         </div>
-        <div class="timer-text" id="timer-text">30s</div>
+        <div class="timer-text" id="timer-text">20s</div>
         <div class="card challenge-card">
             <p class="challenge-question" id="challenge-question"></p>
-
             <div id="options-container" class="options-container"></div>
-
             <button class="btn-primary" id="btn-submit" onclick="submitAnswer()">Submit Answer</button>
         </div>
     </div>
@@ -91,10 +89,9 @@
         <div class="result-icon" id="result-icon"></div>
         <h2 id="result-title"></h2>
         <p id="result-message"></p>
-        <div class="correct-answer-box" id="correct-answer-box">
-            <span class="correct-label">Correct answer</span>
-            <span id="correct-answer-text"></span>
-        </div>
+
+        <div class="vote-bars" id="vote-bars"></div>
+
         <div class="result-stats">
             <div class="stat-item">
                 <span class="stat-value" id="stat-round"></span>
@@ -104,9 +101,31 @@
                 <span class="stat-value" id="stat-score"></span>
                 <span class="stat-label">Score</span>
             </div>
+            <div class="stat-item">
+                <span class="stat-value" id="stat-voters"></span>
+                <span class="stat-label">Total Votes</span>
+            </div>
         </div>
         <button class="btn-primary" onclick="nextRound()">
             <span id="next-btn-text">Next Round</span>
+            <span class="btn-arrow">→</span>
+        </button>
+    </div>
+</div>
+
+<!-- LEADERBOARD SCREEN -->
+<div id="screen-leaderboard" class="screen">
+    <div class="leaderboard-container">
+        <div class="leaderboard-header">
+            <span class="logo-icon small">📊</span>
+            <h2 id="leaderboard-title">Leaderboard</h2>
+        </div>
+        <p class="leaderboard-subtitle" id="leaderboard-subtitle">After Round 5</p>
+        <div class="card leaderboard-card">
+            <div id="leaderboard-list"></div>
+        </div>
+        <button class="btn-primary" id="leaderboard-btn" onclick="continueAfterLeaderboard()">
+            <span id="leaderboard-btn-text">Continue to Round 6</span>
             <span class="btn-arrow">→</span>
         </button>
     </div>
@@ -120,7 +139,7 @@
         <p class="gameover-name" id="gameover-name"></p>
         <div class="card final-score-card">
             <span class="final-score-value" id="final-score"></span>
-            <span class="final-score-max">/ 5</span>
+            <span class="final-score-max">/ 15</span>
         </div>
         <p class="gameover-message" id="gameover-message"></p>
         <button class="btn-primary" onclick="restartGame()">Play Again</button>

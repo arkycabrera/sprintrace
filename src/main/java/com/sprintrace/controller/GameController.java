@@ -2,9 +2,10 @@ package com.sprintrace.controller;
 
 import com.sprintrace.model.Challenge;
 import com.sprintrace.service.ChallengeService;
+import com.sprintrace.service.VoteService;
 import org.springframework.web.bind.annotation.*;
-import java.util.List;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -13,9 +14,11 @@ import java.util.Map;
 public class GameController {
 
     private final ChallengeService challengeService;
+    private final VoteService voteService;
 
-    public GameController(ChallengeService challengeService) {
+    public GameController(ChallengeService challengeService, VoteService voteService) {
         this.challengeService = challengeService;
+        this.voteService = voteService;
     }
 
     @GetMapping("/challenges")
@@ -23,27 +26,27 @@ public class GameController {
         return challengeService.getAllChallenges();
     }
 
-    @GetMapping("/challenge")
-    public Challenge getChallenge(@RequestParam(defaultValue = "1") int round) {
-        return challengeService.getRandomChallenge(round);
-    }
-
     @PostMapping("/answer")
     public Map<String, Object> submitAnswer(@RequestBody Map<String, String> payload) {
         int challengeId = Integer.parseInt(payload.get("challengeId"));
         String playerAnswer = payload.get("answer");
 
-        Challenge challenge = challengeService.getAllChallenges().stream()
-                .filter(c -> c.getId() == challengeId)
-                .findFirst()
-                .orElse(null);
+        voteService.recordVote(challengeId, playerAnswer);
 
-        if (challenge == null) {
-            return Map.of("correct", false, "message", "Challenge not found");
-        }
+        Map<String, Integer> votes = voteService.getVotes(challengeId);
+        int totalVotes = voteService.getTotalVotes(challengeId);
+        String majority = voteService.getMajority(challengeId);
+        boolean tie = voteService.isTie(challengeId);
+        boolean pointAwarded = !tie && playerAnswer.equals(majority);
 
-        boolean correct = challengeService.checkAnswer(challenge, playerAnswer);
-        return Map.of("correct", correct, "challengeId", challengeId);
+        return Map.of(
+                "playerChoice", playerAnswer,
+                "majority", majority != null ? majority : "",
+                "isTie", tie,
+                "pointAwarded", pointAwarded,
+                "votes", votes,
+                "totalVotes", totalVotes
+        );
     }
 
     @GetMapping("/health")

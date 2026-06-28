@@ -1,20 +1,22 @@
 // ===== STATE =====
-const MAX_ROUNDS = 5;
+const MAX_ROUNDS = 15;
+const LEADERBOARD_AT = [5, 10, 15];
+
 const state = {
     playerName: '',
     round: 1,
     score: 0,
-    currentChallenge: null,
     challengeQueue: [],
+    currentChallenge: null,
+    selectedOption: null,
     timer: null,
     lobbyTimer: null,
     timeRemaining: 0,
     timerTotal: 0,
-    selectedOption: null,
-    sequenceSelection: []
+    leaderboardIsFinal: false
 };
 
-// ===== SCREEN MANAGEMENT =====
+// ===== SCREENS =====
 function showScreen(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById('screen-' + id).classList.add('active');
@@ -40,12 +42,10 @@ document.getElementById('player-name').addEventListener('keypress', e => {
     if (e.key === 'Enter') joinGame();
 });
 
-
 // ===== LOBBY =====
 function showLobby() {
     showScreen('lobby');
-    const initial = state.playerName.charAt(0).toUpperCase();
-    document.getElementById('lobby-avatar').textContent = initial;
+    document.getElementById('lobby-avatar').textContent = state.playerName.charAt(0).toUpperCase();
     document.getElementById('lobby-welcome').textContent = `Welcome, ${state.playerName}!`;
 
     let count = 30;
@@ -56,18 +56,14 @@ function showLobby() {
 
     state.lobbyTimer = setInterval(() => {
         count--;
-        if (count <= 0) {
-            clearInterval(state.lobbyTimer);
-            startChallenge();
-        } else {
-            el.textContent = count;
-        }
+        if (count <= 0) { clearInterval(state.lobbyTimer); startChallenge(); }
+        else el.textContent = count;
     }, 1000);
 }
 
 async function letsGo() {
     clearInterval(state.lobbyTimer);
-    await loadChallenges();
+    if (state.challengeQueue.length === 0) await loadChallenges();
     startChallenge();
 }
 
@@ -75,10 +71,7 @@ async function loadChallenges() {
     try {
         const res = await fetch('/api/challenges');
         const all = await res.json();
-        // Separate by difficulty, shuffle each group, interleave: 3 easy then 2 hard
-        const easy = all.filter(c => c.difficulty === 1).sort(() => Math.random() - 0.5);
-        const hard = all.filter(c => c.difficulty === 2).sort(() => Math.random() - 0.5);
-        state.challengeQueue = [...easy.slice(0, 3), ...hard.slice(0, 2)];
+        state.challengeQueue = all.sort(() => Math.random() - 0.5).slice(0, MAX_ROUNDS);
     } catch (err) {
         console.error('Failed to load challenges', err);
     }
@@ -87,27 +80,23 @@ async function loadChallenges() {
 // ===== CHALLENGE =====
 function startChallenge() {
     showScreen('challenge');
-    document.getElementById('round-badge').textContent = `Round ${state.round}`;
+    document.getElementById('round-badge').textContent = `Round ${state.round} of ${MAX_ROUNDS}`;
     document.getElementById('score-display').textContent = state.score;
+    document.getElementById('btn-submit').disabled = false;
     state.selectedOption = null;
-    state.sequenceSelection = [];
 
     const challenge = state.challengeQueue[state.round - 1];
     if (!challenge) {
-        document.getElementById('challenge-question').textContent =
-            'Could not load challenge. Make sure the server is running on port 8080.';
+        document.getElementById('challenge-question').textContent = 'Could not load question. Please check the server.';
         return;
     }
     state.currentChallenge = challenge;
-    renderChallenge(challenge);
-}
 
-function renderChallenge(c) {
-    document.getElementById('challenge-question').textContent = c.question;
+    document.getElementById('challenge-question').textContent = challenge.question;
 
     const box = document.getElementById('options-container');
     box.innerHTML = '';
-    c.options.forEach(opt => {
+    challenge.options.forEach(opt => {
         const btn = document.createElement('button');
         btn.className = 'option-btn';
         btn.textContent = opt;
@@ -119,7 +108,7 @@ function renderChallenge(c) {
         box.appendChild(btn);
     });
 
-    startTimer(c.timeLimit);
+    startTimer(challenge.timeLimit);
 }
 
 // ===== TIMER =====
@@ -142,19 +131,22 @@ function startTimer(seconds) {
         if (pct <= 30) bar.classList.add('warn');
         if (state.timeRemaining <= 0) {
             clearInterval(state.timer);
-            showResult(false, true);
+            handleTimeout();
         }
     }, 1000);
 }
 
 function pauseTimer() { clearInterval(state.timer); }
 
-function resumeTimer() { startTimer(state.timeRemaining); }
-
 // ===== SUBMIT =====
 async function submitAnswer() {
     if (document.getElementById('btn-submit').disabled) return;
-    if (!state.selectedOption) { shake('options-container'); return; }
+    if (!state.selectedOption) {
+        const box = document.getElementById('options-container');
+        box.classList.add('shake');
+        setTimeout(() => box.classList.remove('shake'), 400);
+        return;
+    }
 
     pauseTimer();
     document.getElementById('btn-submit').disabled = true;
@@ -166,70 +158,171 @@ async function submitAnswer() {
             body: JSON.stringify({ challengeId: String(state.currentChallenge.id), answer: state.selectedOption })
         });
         const data = await res.json();
-        showResult(data.correct, false);
+        showResult(data, false);
     } catch (err) {
         document.getElementById('btn-submit').disabled = false;
-        resumeTimer();
+        startTimer(state.timeRemaining);
     }
 }
 
-function shake(id) {
-    const el = document.getElementById(id);
-    el.classList.add('shake');
-    setTimeout(() => el.classList.remove('shake'), 400);
+async function handleTimeout() {
+    document.getElementById('btn-submit').disabled = true;
+    if (state.selectedOption) {
+        try {
+            const res = await fetch('/api/answer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ challengeId: String(state.currentChallenge.id), answer: state.selectedOption })
+            });
+            const data = await res.json();
+            showResult(data, false);
+            return;
+        } catch (err) { /* fall through to timeout screen */ }
+    }
+    showResult(null, true);
 }
 
 // ===== RESULT =====
-function showResult(correct, timedOut) {
-    clearInterval(state.timer);
+function showResult(data, timedOut) {
     showScreen('result');
 
-    const c = state.currentChallenge;
-
-    document.getElementById('result-icon').textContent  = correct ? '✅' : timedOut ? '⏰' : '❌';
-    const title = document.getElementById('result-title');
-    title.textContent = correct ? 'Correct!' : timedOut ? "Time's Up!" : 'Not Quite!';
-    title.className   = correct ? 'ok' : 'bad';
-
-    document.getElementById('result-message').textContent = correct
-        ? 'Great job! You got it right.'
-        : timedOut ? 'You ran out of time on this one.' : 'Better luck next round!';
-
-    const box = document.getElementById('correct-answer-box');
-    if (!correct) {
-        box.classList.add('show');
-        const ans = c.answer;
-        document.getElementById('correct-answer-text').textContent =
-            Array.isArray(ans) ? ans.join(' → ') : String(ans);
+    if (timedOut || !data) {
+        document.getElementById('result-icon').textContent = '⏰';
+        document.getElementById('result-title').textContent = "Time's Up!";
+        document.getElementById('result-title').className = 'bad';
+        document.getElementById('result-message').textContent = "You didn't answer in time. No point this round.";
+        document.getElementById('vote-bars').innerHTML = '';
+        document.getElementById('stat-voters').textContent = '—';
     } else {
-        box.classList.remove('show');
-        state.score++;
+        const { pointAwarded, isTie, majority, votes, totalVotes } = data;
+
+        if (isTie) {
+            document.getElementById('result-icon').textContent = '🤝';
+            document.getElementById('result-title').textContent = "It's a Tie!";
+            document.getElementById('result-title').className = 'neutral';
+            document.getElementById('result-message').textContent = "The vote split evenly. No one gets a point this round.";
+        } else if (pointAwarded) {
+            document.getElementById('result-icon').textContent = '✨';
+            document.getElementById('result-title').textContent = "You matched the majority!";
+            document.getElementById('result-title').className = 'ok';
+            document.getElementById('result-message').textContent = `The crowd agrees: "${majority}"`;
+            state.score++;
+        } else {
+            document.getElementById('result-icon').textContent = '🤔';
+            document.getElementById('result-title').textContent = "You went against the crowd";
+            document.getElementById('result-title').className = 'bad';
+            document.getElementById('result-message').textContent = `The majority chose: "${majority}"`;
+        }
+
+        renderVoteBars(votes, totalVotes, state.selectedOption, majority, isTie);
+        document.getElementById('stat-voters').textContent = totalVotes;
     }
 
     document.getElementById('stat-round').textContent = state.round;
     document.getElementById('stat-score').textContent = state.score;
+
+    const isLastRound = state.round >= MAX_ROUNDS;
+    const isLeaderboardRound = LEADERBOARD_AT.includes(state.round);
     document.getElementById('next-btn-text').textContent =
-        state.round >= MAX_ROUNDS ? 'See Final Score' : 'Next Round →';
+        isLastRound ? 'See Final Score' :
+        isLeaderboardRound ? 'See Leaderboard' :
+        `Round ${state.round + 1} →`;
 }
 
+function renderVoteBars(votes, total, playerChoice, majority, isTie) {
+    const container = document.getElementById('vote-bars');
+    container.innerHTML = '';
+
+    if (!votes || total === 0) return;
+
+    Object.entries(votes)
+        .sort((a, b) => b[1] - a[1])
+        .forEach(([option, count]) => {
+            const pct = Math.round((count / total) * 100);
+            const isPlayer = option === playerChoice;
+            const isMajority = !isTie && option === majority;
+
+            const item = document.createElement('div');
+            item.className = 'vote-bar-item';
+            item.innerHTML = `
+                <div class="vote-bar-label">
+                    <span>${option} ${isPlayer ? '<span class="your-tag">you</span>' : ''}</span>
+                    <span class="vote-pct">${pct}%</span>
+                </div>
+                <div class="vote-bar-track">
+                    <div class="vote-bar-fill ${isMajority ? 'majority' : isPlayer ? 'player' : 'other'}"
+                         style="width: 0%" data-width="${pct}%"></div>
+                </div>`;
+            container.appendChild(item);
+        });
+
+    requestAnimationFrame(() => {
+        container.querySelectorAll('.vote-bar-fill').forEach(bar => {
+            bar.style.width = bar.dataset.width;
+        });
+    });
+}
+
+// ===== NEXT ROUND =====
 function nextRound() {
-    if (state.round >= MAX_ROUNDS) {
-        showGameOver();
-        return;
+    const completed = state.round;
+    if (LEADERBOARD_AT.includes(completed)) {
+        const isFinal = completed === MAX_ROUNDS;
+        state.leaderboardIsFinal = isFinal;
+        if (!isFinal) state.round++;
+        showLeaderboard(completed, isFinal);
+    } else {
+        state.round++;
+        startChallenge();
     }
-    state.round++;
-    document.getElementById('btn-submit').disabled = false;
-    startChallenge();
+}
+
+// ===== LEADERBOARD =====
+function showLeaderboard(completedRound, isFinal) {
+    showScreen('leaderboard');
+
+    document.getElementById('leaderboard-title').textContent = isFinal ? 'Final Results' : 'Leaderboard';
+    document.getElementById('leaderboard-subtitle').textContent = `After Round ${completedRound}`;
+
+    const list = document.getElementById('leaderboard-list');
+    list.innerHTML = `
+        <div class="leaderboard-row solo">
+            <span class="lb-rank">1</span>
+            <span class="lb-avatar">${state.playerName.charAt(0).toUpperCase()}</span>
+            <span class="lb-name">${state.playerName}</span>
+            <span class="lb-score">${state.score} <span class="lb-score-label">pts</span></span>
+        </div>
+        <p class="lb-solo-note">Multiplayer coming soon — invite friends to compete!</p>`;
+
+    const btnText = isFinal ? 'See Final Score' : `Continue to Round ${state.round}`;
+    document.getElementById('leaderboard-btn-text').textContent = btnText;
+}
+
+function continueAfterLeaderboard() {
+    if (state.leaderboardIsFinal) {
+        showGameOver();
+    } else {
+        startChallenge();
+    }
 }
 
 // ===== GAME OVER =====
 const MESSAGES = [
-    "Don't give up — every expert was once a beginner!",
-    "You got started — that's what matters!",
-    "Solid effort. You're getting the hang of it!",
-    "Nice work! You've got real potential.",
-    "Impressive! You're almost at the top!",
-    "Perfect score! You're the SprintRace champion! 🎉"
+    "Don't give up — great thinkers start somewhere!",
+    "A brave start. Keep questioning everything.",
+    "You're thinking independently. That's rare.",
+    "Solid instincts. You read the room well.",
+    "You understand how people think. Impressive.",
+    "You're tuned in to the collective mind!",
+    "Outstanding! You think like the crowd thinks.",
+    "Remarkable — you're deeply in sync with others.",
+    "Exceptional crowd-reading ability!",
+    "You're practically psychic!",
+    "Top-tier performance. The crowd is yours.",
+    "Extraordinary! Near-perfect crowd alignment.",
+    "Incredible run. You're a natural!",
+    "Almost perfect. The crowd loves you.",
+    "Perfect score! You are the SprintRace champion! 🎉"
 ];
 
 function showGameOver() {
@@ -237,7 +330,8 @@ function showGameOver() {
     document.getElementById('gameover-name').textContent = state.playerName;
     document.getElementById('final-score').textContent = state.score;
     document.getElementById('gameover-message').textContent = MESSAGES[state.score] || 'Great game!';
-    document.getElementById('trophy-icon').textContent = state.score === MAX_ROUNDS ? '🏆' : state.score >= 3 ? '🥈' : '🎮';
+    document.getElementById('trophy-icon').textContent =
+        state.score >= 13 ? '🏆' : state.score >= 9 ? '🥈' : state.score >= 5 ? '🥉' : '🎮';
 }
 
 function restartGame() {
@@ -246,7 +340,15 @@ function restartGame() {
     state.round = 1;
     state.score = 0;
     state.currentChallenge = null;
+    state.challengeQueue = [];
     document.getElementById('player-name').value = '';
     document.getElementById('btn-submit').disabled = false;
     showScreen('join');
+}
+
+// ===== SHAKE =====
+function shake(id) {
+    const el = document.getElementById(id);
+    el.classList.add('shake');
+    setTimeout(() => el.classList.remove('shake'), 400);
 }
